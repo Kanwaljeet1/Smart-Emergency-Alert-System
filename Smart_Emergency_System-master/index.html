@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ResQNet - Smart Emergency Response</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CSS Reset and Variables */
+:root {
+  --bg: #0A0E1A;
+  --surface: #111827;
+  --surface2: #1F2937;
+  --border: #374151;
+  --primary: #E53E3E;
+  --primary2: #FF6B6B;
+  --success: #00D4AA;
+  --info: #3B82F6;
+  --warning: #F59E0B;
+  --safe: #10B981;
+  --text-main: #F9FAFB;
+  --text-sec: #9CA3AF;
+  --text-muted: #6B7280;
+  
+  --font-heading: 'Rajdhani', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  background-color: #000;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  display: flex;
+  justify-content: center;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+}
+#app-container {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  background-color: var(--bg);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Animations */
+@keyframes pulseLogo {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+@keyframes sosRipple {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes slideInUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes slideOutDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes fadeInScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes mapPinMove {
+  0% { transform: translate(0,0); }
+  50% { transform: translate(15px, 10px); }
+  100% { transform: translate(0,0); }
+}
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+@keyframes slideLeftIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Typography & Utility */
+h1, h2, h3, h4, h5 { font-family: var(--font-heading); font-weight: 600; margin-bottom: 4px; }
+.text-sec { color: var(--text-sec); font-size: 13px; }
+.text-muted { color: var(--text-muted); font-size: 11px; }
+.flex-row { display: flex; align-items: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.glass-panel {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.btn {
+  border: none; border-radius: 8px; padding: 14px; font-family: var(--font-heading); font-size: 16px;
+  font-weight: 600; cursor: pointer; text-align: center; color: white; width: 100%; transition: all 0.2s;
+  min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--info); }
+.btn-teal { background: var(--success); color: #000; }
+.btn-red { background: var(--primary); }
+
+/* Screens & Transitions */
+.screen {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--bg); display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.35s ease;
+  z-index: 10;
+}
+.screen.active { transform: translateX(0); z-index: 20; }
+.screen-content {
+  flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 90px;
+}
+.screen-content::-webkit-scrollbar { display: none; }
+
+/* Top Header */
+.app-header {
+  height: 60px; padding: 0 20px; border-bottom: 1px solid var(--border);
+  background: var(--bg); z-index: 30; flex-shrink: 0;
+}
+.header-title { font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.live-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); margin-left: 8px; }
+.silent-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 8px var(--primary); margin-left: 8px; display: none; }
+
+/* Bottom Nav */
+.bottom-nav {
+  position: absolute; bottom: 0; width: 100%; height: 65px;
+  background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border); display: flex; justify-content: space-around;
+  align-items: center; z-index: 50; padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; color: var(--text-sec);
+  font-size: 11px; gap: 4px; padding: 8px; cursor: pointer; position: relative; min-height: 44px;
+}
+.nav-item.active { color: var(--success); }
+.nav-item.active::after {
+  content: ''; position: absolute; bottom: 0; width: 20px; height: 3px;
+  background: var(--success); border-radius: 2px 2px 0 0;
+}
+.nav-icon { font-size: 20px; }
+
+/* Splash */
+#screen-splash { z-index: 100; background: var(--bg); justify-content: center; align-items: center; }
+.splash-logo { font-size: 60px; color: var(--primary); animation: pulseLogo 1.5s infinite; text-shadow: 0 0 20px rgba(229,62,62,0.5); }
+.splash-title { font-family: var(--font-heading); font-size: 36px; margin: 10px 0; }
+.splash-tag { color: var(--text-sec); font-size: 14px; text-align: center; max-width: 80%; line-height: 1.4; }
+.splash-footer { position: absolute; bottom: 40px; font-size: 12px; color: var(--text-muted); }
+
+/* Home */
+.hero-sos { display: flex; flex-direction: column; align-items: center; padding: 40px 0; }
+.sos-btn-container { position: relative; width: 120px; height: 120px; margin-bottom: 20px; }
+.sos-btn {
+  width: 100%; height: 100%; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--primary2), var(--primary));
+  color: white; font-family: var(--font-heading); font-size: 32px; font-weight: 700;
+  box-shadow: 0 0 30px rgba(229,62,62,0.4); cursor: pointer; position: relative; z-index: 5;
+  transition: transform 0.1s; display: flex; align-items: center; justify-content: center;
+}
+.sos-btn:active { transform: scale(0.95); }
+.sos-ring {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 50%; border: 2px solid var(--primary); z-index: 1; pointer-events: none;
+  animation: sosRipple 1.8s linear infinite;
+}
+.sos-ring:nth-child(2) { animation-delay: 0.6s; }
+.sos-ring:nth-child(3) { animation-delay: 1.2s; }
+.stats-row { display: flex; gap: 10px; margin-bottom: 24px; }
+.stat-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
+.stat-val { font-family: var(--font-heading); font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.action-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; display: flex; flex-direction: column; align-items: flex-start;
+  transition: background 0.2s; cursor: pointer; min-height: 80px;
+}
+.action-card:hover { border-color: var(--info); box-shadow: 0 0 10px rgba(59,130,246,0.1); }
+.action-card:active { background: var(--surface2); }
+.action-icon { font-size: 24px; margin-bottom: 12px; }
+.action-title { font-weight: 500; font-size: 14px; }
+.horiz-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+.horiz-scroll::-webkit-scrollbar { display: none; }
+.citizen-card {
+  min-width: 140px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; flex-shrink: 0;
+}
+.avatar-circle { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 8px; border: 1px solid var(--border); }
+.badge-pro { background: rgba(245, 158, 11, 0.2); color: var(--warning); padding: 2px 6px; border-radius: 4px; font-size: 10px; border: 1px solid var(--warning); display: inline-block; }
+.badge-std { background: rgba(59, 130, 246, 0.2); color: var(--info); padding: 2px 6px; border-radius: 4px; font-size: 10px; border: 1px solid var(--info); display: inline-block; }
+.badge-basic { background: rgba(107, 114, 128, 0.2); color: var(--text-sec); padding: 2px 6px; border-radius: 4px; font-size: 10px; border: 1px solid var(--text-sec); display: inline-block; }
+.status-ready { color: var(--safe); font-size: 11px; display: flex; align-items: center; gap: 4px; margin-top: 4px;}
+.status-ready::before { content:''; width:6px; height:6px; background:var(--safe); border-radius:50%; }
+
+/* SOS Active */
+#screen-sos-active { background: var(--bg); }
+.sos-overlay {
+  position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(229,62,62,0.1);
+  z-index: 1; pointer-events: none;
+}
+.sos-phase { display: none; flex-direction: column; height: 100%; z-index: 2; position: relative; padding: 20px; }
+.sos-phase.active { display: flex; animation: fadeInScale 0.3s ease; }
+.spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spinner 0.7s linear infinite; margin: 0 auto 20px; }
+.gov-card { background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; opacity:0; transform: translateY(10px); transition: all 0.3s; }
+.map-mock {
+  position: absolute; top:0; left:0; width:100%; height:100%; background: #1a2235;
+  background-image: linear-gradient(#2a3441 1px, transparent 1px), linear-gradient(90deg, #2a3441 1px, transparent 1px);
+  background-size: 40px 40px; z-index: 0;
+}
+.map-pin { position: absolute; font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.pin-center { top: 50%; left: 50%; transform: translate(-50%, -50%); animation: pulseLogo 2s infinite; }
+.pin-1 { top: 30%; left: 30%; animation: mapPinMove 3s infinite ease-in-out; }
+.pin-2 { top: 60%; left: 70%; animation: mapPinMove 4s infinite ease-in-out reverse; }
+.timeline { margin-top: 20px; }
+.timeline-item { display: flex; gap: 12px; margin-bottom: 12px; opacity:0; transform: translateX(20px); }
+.timeline-time { color: var(--text-sec); font-size: 12px; min-width: 40px; padding-top: 2px; }
+.timeline-content { font-size: 14px; }
+.responder-card-popup {
+  position: absolute; bottom: 85px; left: 20px; right: 20px;
+  background: var(--surface); border: 1px solid var(--success); border-radius: 16px;
+  padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10;
+  animation: slideInUp 0.4s ease; display: none;
+}
+.progress-bar-bg { width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.3s; }
+
+/* Transport */
+.vehicle-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px;
+  transition: all 0.2s; cursor: pointer;
+}
+.vehicle-card.selected { border-color: var(--success); box-shadow: 0 0 15px rgba(0,212,170,0.2); background: rgba(0,212,170,0.05); }
+.v-icon { font-size: 28px; width: 40px; text-align: center; }
+.v-details { flex: 1; }
+.v-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.v-type { font-size: 12px; color: var(--text-sec); }
+.v-price { font-weight: 600; font-size: 14px; }
+.v-free { color: var(--safe); }
+.eta-chip { background: var(--surface2); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; }
+.book-btn-area { position: sticky; bottom: 0; background: var(--bg); padding-top: 10px; margin-top: auto; }
+
+/* First Aid */
+.aid-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.aid-card {
+  aspect-ratio: 1; border: 2px solid; border-radius: 16px; padding: 16px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; cursor: pointer; background: var(--surface); transition: transform 0.2s;
+}
+.aid-card:hover { box-shadow: 0 0 15px rgba(255,255,255,0.05); }
+.aid-card:active { transform: scale(0.95); }
+.aid-cpr { border-color: var(--primary); }
+.aid-bleed { border-color: #991B1B; }
+.aid-burn { border-color: var(--warning); }
+.aid-choke { border-color: var(--info); }
+.aid-icon { font-size: 32px; margin-bottom: 8px; }
+
+/* Guide Panel */
+.guide-panel {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--bg); z-index: 60; transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column;
+}
+.guide-panel.open { transform: translateY(0); }
+.guide-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.guide-content { flex: 1; overflow-y: auto; padding: 20px; }
+.step-item { display: flex; gap: 16px; margin-bottom: 24px; position: relative; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--primary);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;
+  font-family: var(--font-heading); color: white;
+}
+.step-text { font-size: 15px; line-height: 1.5; padding-top: 4px; }
+.step-line { position: absolute; left: 13px; top: 32px; bottom: -20px; width: 2px; background: var(--border); }
+.step-item:last-child .step-line { display: none; }
+.voice-controls { padding: 20px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 10px; }
+
+/* Services */
+.search-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; gap: 10px; margin-bottom: 16px; color: var(--text-sec); align-items: center; }
+.search-bar input { background: transparent; border: none; color: white; outline: none; width: 100%; font-family: var(--font-body); font-size: 14px; }
+.filter-pills { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; scrollbar-width: none; }
+.filter-pills::-webkit-scrollbar { display: none; }
+.filter-pill { padding: 6px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; font-size: 13px; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+.filter-pill.active { background: var(--info); border-color: var(--info); color: white; }
+.service-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: border-color 0.2s; }
+.service-card:hover { border-color: var(--info); }
+.srv-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: flex-start; }
+.srv-title { font-weight: 600; font-size: 16px; }
+.srv-dist { font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+.srv-meta { display: flex; gap: 12px; font-size: 12px; color: var(--text-sec); margin-bottom: 12px; }
+.srv-star { color: #FBBF24; font-weight: 600; }
+.btn-book-srv { width: auto; padding: 8px 16px; font-size: 14px; min-height: 36px; border: 1px solid var(--info); color: var(--info); background: transparent; border-radius: 8px; font-family: var(--font-heading); font-weight: 600; cursor: pointer; transition: all 0.2s; }
+
+/* Alerts */
+.incident-card {
+  background: var(--surface); border-left: 4px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 12px; display: flex; gap: 12px; align-items: center;
+}
+.inc-red { border-left-color: var(--primary); background: rgba(229,62,62,0.05); }
+.inc-amber { border-left-color: var(--warning); background: rgba(245,158,11,0.05); }
+.inc-blue { border-left-color: var(--info); background: rgba(59,130,246,0.05); }
+.inc-icon { font-size: 24px; }
+
+/* Profile */
+.tier-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+}
+.tier-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+/* Notification Popup */
+.notif-popup {
+  position: absolute; top: 10px; left: 10px; right: 10px;
+  background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: 8px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  z-index: 1000; transform: translateY(-150%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); display: flex; gap: 12px; align-items: center;
+}
+.notif-popup.show { transform: translateY(0); }
+
+/* Utility Classes */
+.hidden { display: none !important; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.w-100 { width: 100%; }
+</style>
+</head>
+<body>
+
+<div id="app-container">
+  
+  <!-- Notification Popup -->
+  <div id="notif-popup" class="notif-popup">
+    <div style="font-size: 24px;">🚨</div>
+    <div style="flex: 1;">
+      <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;" id="notif-title">Emergency 1.2km from you</div>
+      <div class="text-sec" id="notif-desc">Ravi Kumar accepted — 3 min ETA</div>
+      <div style="font-size: 11px; color: var(--info); margin-top: 4px;">[Tap to view]</div>
+    </div>
+  </div>
+
+  <!-- Screen 1: Splash -->
+  <div id="screen-splash" class="screen active">
+    <div class="splash-logo">🛡️</div>
+    <h1 class="splash-title">ResQ<span style="color:var(--primary)">Net</span></h1>
+    <p class="splash-tag">Saving lives through faster, smarter, community-powered response</p>
+    <div class="splash-footer">Team Antigravity • Dev Delight Hack 2026</div>
+  </div>
+
+  <!-- App Header (Shared for tabs) -->
+  <header id="main-header" class="app-header flex-between hidden">
+    <div class="flex-row">
+      <span class="header-title">ResQNet</span>
+      <div id="status-dot" class="live-dot"></div>
+      <div id="silent-dot" class="silent-dot"></div>
+    </div>
+    <div style="position: relative; cursor: pointer; padding: 4px;" onclick="navTo('alerts', document.getElementById('nav-alerts'))">
+      <div style="font-size: 20px;">🔔</div>
+      <div style="position: absolute; top: -2px; right: -2px; background: var(--primary); width: 16px; height: 16px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white;">3</div>
+    </div>
+  </header>
+
+  <!-- Screen 2: Home -->
+  <div id="screen-home" class="screen">
+    <div class="screen-content">
+      <div class="flex-row text-sec mb-3" style="gap: 8px; cursor: pointer; display: inline-flex; padding: 4px;" onclick="navTo('profile')">
+        <div class="avatar-circle" style="width:28px; height:28px; font-size:11px; margin-bottom:0;">ME</div>
+        📍 Bengaluru, Karnataka
+      </div>
+
+      <div class="hero-sos">
+        <div class="sos-btn-container" id="sos-container">
+          <button class="sos-btn" id="btn-sos">SOS</button>
+          <div class="sos-ring"></div>
+          <div class="sos-ring"></div>
+          <div class="sos-ring"></div>
+        </div>
+        <div class="text-muted" id="sos-hint">Hold 0.5s for Silent Mode</div>
+        <div id="silent-badge" class="hidden mt-1 badge-pro" style="color:var(--primary); border-color:var(--primary); background:rgba(229,62,62,0.1);">Silent Alert Active</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--safe)">247</div>
+          <div class="text-muted">Responders</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--primary)">3</div>
+          <div class="text-muted">Active Alerts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--info)">4m</div>
+          <div class="text-muted">Avg ETA</div>
+        </div>
+      </div>
+
+      <h3 class="mb-2" style="font-size:16px;">Quick Actions</h3>
+      <div class="grid-2x2">
+        <div class="action-card" onclick="navTo('firstaid', document.getElementById('nav-firstaid'))">
+          <div class="action-icon">❤️</div>
+          <div class="action-title">First Aid</div>
+        </div>
+        <div class="action-card" onclick="navTo('transport', document.getElementById('nav-transport'))">
+          <div class="action-icon">🚑</div>
+          <div class="action-title">Transport</div>
+        </div>
+        <div class="action-card" onclick="navTo('services', document.getElementById('nav-services'))">
+          <div class="action-icon">🏥</div>
+          <div class="action-title">Services</div>
+        </div>
+        <div class="action-card" onclick="navTo('alerts', document.getElementById('nav-alerts'))">
+          <div class="action-icon">🔔</div>
+          <div class="action-title">Area Alerts</div>
+        </div>
+      </div>
+
+      <div class="flex-between mb-2">
+        <h3 style="font-size:16px;">Nearby Citizens</h3>
+      </div>
+      <div class="horiz-scroll">
+        <div class="citizen-card">
+          <div class="avatar-circle">RK</div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Ravi K.</div>
+          <div class="badge-pro mb-1">First Aid</div>
+          <div class="text-muted">0.8 km</div>
+          <div class="status-ready">Ready</div>
+        </div>
+        <div class="citizen-card">
+          <div class="avatar-circle">P</div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Priya S.</div>
+          <div class="badge-std mb-1">Nurse</div>
+          <div class="text-muted">1.2 km</div>
+          <div class="status-ready">Ready</div>
+        </div>
+        <div class="citizen-card">
+          <div class="avatar-circle">A</div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Ankit D.</div>
+          <div class="badge-basic mb-1">CPR</div>
+          <div class="text-muted">1.5 km</div>
+          <div class="status-ready">Ready</div>
+        </div>
+        <div class="citizen-card">
+          <div class="avatar-circle">M</div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Dr. Manoj</div>
+          <div class="badge-pro mb-1">Doctor</div>
+          <div class="text-muted">2.1 km</div>
+          <div class="text-muted" style="color:var(--warning); font-size:11px; margin-top:4px; display:flex; align-items:center; gap:4px;">
+            <span style="display:inline-block; width:6px; height:6px; background:var(--warning); border-radius:50%;"></span>Busy
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 3: SOS Active -->
+  <div id="screen-sos-active" class="screen" style="z-index: 100;">
+    <div class="sos-overlay" id="sos-red-overlay"></div>
+    
+    <!-- Phase 1 -->
+    <div id="sos-phase-1" class="sos-phase active" style="justify-content:center; align-items:center;">
+      <div class="spinner"></div>
+      <h2 style="margin-bottom:10px;">Sending Alert...</h2>
+      <div class="progress-bar-bg" style="width:200px;"><div class="progress-bar-fill" style="width:0%" id="sos-pbar-1"></div></div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div id="sos-phase-2" class="sos-phase">
+      <div style="background:var(--safe); color:#000; padding:12px; border-radius:8px; text-align:center; font-weight:600; margin-bottom:20px;">
+        ✅ Alert sent to 5 verified responders
+      </div>
+      <h3 class="mb-2">Notifying Services</h3>
+      <div class="gov-card" id="gov-1"><div>🚔 Police Control Room</div><div style="color:var(--safe); font-weight:bold;">✓</div></div>
+      <div class="gov-card" id="gov-2"><div>🚒 Fire Station</div><div style="color:var(--safe); font-weight:bold;">✓</div></div>
+      <div class="gov-card" id="gov-3"><div>🏥 CATS Ambulance</div><div style="color:var(--safe); font-weight:bold;">✓</div></div>
+    </div>
+
+    <!-- Phase 3 & 4 (Map + Timeline) -->
+    <div id="sos-phase-3" class="sos-phase" style="padding:0;">
+      <div class="map-mock">
+        <div class="map-pin pin-center">📍</div>
+        <div class="map-pin pin-1">🔵</div>
+        <div class="map-pin pin-2">🔵</div>
+      </div>
+      
+      <!-- Responder accepted card -->
+      <div id="responder-card" class="responder-card-popup">
+        <div class="flex-row mb-2" style="gap:12px;">
+          <div class="avatar-circle" style="background:var(--info); border:none; margin:0;">RK</div>
+          <div>
+            <div style="font-weight:600; font-size:16px;">Ravi Kumar accepted</div>
+            <div class="text-muted">🟢 Verified · First Aid Trained</div>
+          </div>
+        </div>
+        <div class="flex-between mb-2">
+          <div class="text-sec">0.8 km away</div>
+          <div style="font-weight:600; color:var(--safe);">ETA: 3 min</div>
+        </div>
+        <div class="text-muted mb-1">Responder approaching...</div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:30%"></div></div>
+      </div>
+
+      <!-- Bottom actions for map view -->
+      <div style="position:absolute; bottom:0; width:100%; padding:20px; background:linear-gradient(transparent, #0A0E1A 20%); z-index:5;">
+        <div class="glass-panel" style="padding:16px; margin-bottom:16px; max-height:160px; overflow-y:auto; scrollbar-width:none;">
+          <h4 class="mb-1">Live Timeline</h4>
+          <div class="timeline" id="live-timeline"></div>
+        </div>
+        <div class="flex-row" style="gap:10px;">
+          <button class="btn btn-red" onclick="cancelSOS()">Cancel</button>
+          <button class="btn btn-primary" onclick="alert('Location shared securely')">Share Location</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 4: Transport -->
+  <div id="screen-transport" class="screen">
+    <div class="screen-content">
+      <h2 class="mb-3">Book Transport</h2>
+      
+      <div id="transport-list">
+        <div class="vehicle-card" onclick="selectVehicle(this)">
+          <div class="v-icon">🚑</div>
+          <div class="v-details">
+            <div class="v-name">Gov Ambulance</div>
+            <div class="v-type">Basic Life Support</div>
+            <div class="v-price v-free">FREE</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="eta-chip mb-1">2 min</div>
+            <div class="status-ready" style="justify-content:flex-end"></div>
+          </div>
+        </div>
+
+        <div class="vehicle-card" onclick="selectVehicle(this)">
+          <div class="v-icon">🚑</div>
+          <div class="v-details">
+            <div class="v-name">ICU Ambulance</div>
+            <div class="v-type">Advanced Life Support</div>
+            <div class="v-price">₹800</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="eta-chip mb-1">5 min</div>
+            <div class="status-ready" style="justify-content:flex-end"></div>
+          </div>
+        </div>
+
+        <div class="vehicle-card" onclick="selectVehicle(this)">
+          <div class="v-icon">🚕</div>
+          <div class="v-details">
+            <div class="v-name">Emergency Cab</div>
+            <div class="v-type">Nearest Driver</div>
+            <div class="v-price">₹120</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="eta-chip mb-1">4 min</div>
+            <div style="color:var(--warning); font-size:24px; line-height:0.5;">•</div>
+          </div>
+        </div>
+
+        <div class="vehicle-card" onclick="selectVehicle(this)">
+          <div class="v-icon">🏍️</div>
+          <div class="v-details">
+            <div class="v-name">Biker Responder</div>
+            <div class="v-type">First-Aid Trained</div>
+            <div class="v-price v-free">FREE</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="eta-chip mb-1">2 min</div>
+            <div class="status-ready" style="justify-content:flex-end"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Booking State -->
+      <div id="transport-booking" class="hidden">
+        <div style="background:var(--safe); color:#000; padding:16px; border-radius:8px; text-align:center; font-weight:600; margin-bottom:20px;">
+          ✅ Ambulance booked successfully
+        </div>
+        <div class="glass-panel" style="padding:20px; text-align:center; margin-bottom:20px;">
+          <h2 style="font-size:36px; color:var(--safe); margin-bottom:8px;" id="eta-countdown">02:00</h2>
+          <div class="text-sec">Arriving in</div>
+        </div>
+        <div class="vehicle-card" style="cursor:default; border-color:var(--border);">
+          <div class="v-icon">🚑</div>
+          <div class="v-details">
+            <div class="v-name">Driver: Ramesh K.</div>
+            <div class="v-type">KA-01-EM-4521</div>
+          </div>
+          <div class="v-icon" style="color:var(--success); font-size:24px; cursor:pointer;" onclick="alert('Calling driver...')">📞</div>
+        </div>
+        <button class="btn btn-primary mt-3" style="background:var(--surface2); border:1px solid var(--border);">Track on Map</button>
+      </div>
+
+      <div class="book-btn-area" id="book-btn-area">
+        <button class="btn btn-teal" id="btn-book-transport" onclick="bookTransport()">Book Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 5: First Aid -->
+  <div id="screen-firstaid" class="screen">
+    <div class="screen-content">
+      <h2 class="mb-3">Emergency Guides</h2>
+      <div class="aid-grid">
+        <div class="aid-card aid-cpr" onclick="openGuide('cpr')">
+          <div class="aid-icon">❤️</div>
+          <div style="font-weight:600;">CPR</div>
+        </div>
+        <div class="aid-card aid-bleed" onclick="openGuide('bleeding')">
+          <div class="aid-icon">🩸</div>
+          <div style="font-weight:600;">Bleeding</div>
+        </div>
+        <div class="aid-card aid-burn" onclick="openGuide('burns')">
+          <div class="aid-icon">🔥</div>
+          <div style="font-weight:600;">Burns</div>
+        </div>
+        <div class="aid-card aid-choke" onclick="openGuide('choking')">
+          <div class="aid-icon">😮</div>
+          <div style="font-weight:600;">Choking</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Guide Panel -->
+    <div id="guide-panel" class="guide-panel">
+      <div class="guide-header">
+        <div class="flex-row" style="gap:12px;">
+          <div id="guide-icon" style="font-size:28px;"></div>
+          <h3 id="guide-title" style="margin:0;">Guide</h3>
+        </div>
+        <div style="font-size:24px; padding:5px; cursor:pointer; color:var(--text-sec);" onclick="closeGuide()">✕</div>
+      </div>
+      <div class="guide-content" id="guide-content">
+        <!-- populated by JS -->
+      </div>
+      <div class="voice-controls">
+        <button class="btn btn-primary" style="flex:1;" id="btn-voice" onclick="toggleVoice()">
+          <span id="voice-icon">🔊</span> <span id="voice-text">Start Voice Guide</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 6: Services -->
+  <div id="screen-services" class="screen">
+    <div class="screen-content">
+      <h2 class="mb-2">Nearby Services</h2>
+      <div class="search-bar">
+        <span>🔍</span>
+        <input type="text" placeholder="Search hospitals, pharmacy..." readonly>
+      </div>
+      <div class="filter-pills">
+        <div class="filter-pill active">All</div>
+        <div class="filter-pill">Hospitals</div>
+        <div class="filter-pill">Pharmacy</div>
+        <div class="filter-pill">Labs</div>
+        <div class="filter-pill">Clinics</div>
+      </div>
+      
+      <div id="services-list">
+        <!-- Service Cards -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 7: Alerts -->
+  <div id="screen-alerts" class="screen">
+    <div class="screen-content">
+      <div class="flex-between mb-3">
+        <h2>Area Incidents</h2>
+        <div class="live-dot" style="animation:pulseLogo 1.5s infinite; width:10px; height:10px;"></div>
+      </div>
+
+      <div id="sos-banner" class="hidden mb-3" style="background:linear-gradient(90deg, var(--primary), #991B1B); padding:16px; border-radius:12px; animation:pulseLogo 2s infinite;">
+        <div style="font-weight:700; font-family:var(--font-heading); font-size:18px; margin-bottom:4px;">🚨 Your SOS is Active</div>
+        <div style="font-size:13px; opacity:0.9;">Ravi Kumar: 3 min ETA</div>
+      </div>
+
+      <div class="incident-card inc-red">
+        <div class="inc-icon">🚨</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Emergency reported near you</div>
+          <div class="flex-between text-sec">
+            <span>MG Road · 1.2km</span>
+            <span>2 min ago</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="incident-card inc-amber">
+        <div class="inc-icon">🚗</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Traffic accident on Hosur Rd</div>
+          <div class="flex-between text-sec">
+            <span>Silk Board · 2.8km</span>
+            <span>8 min ago</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="incident-card inc-red">
+        <div class="inc-icon">🔥</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Fire alert — Koramangala</div>
+          <div class="flex-between text-sec">
+            <span>5th Block · 3.4km</span>
+            <span>12 min ago</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="incident-card inc-blue">
+        <div class="inc-icon">❤️</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Medical assistance needed</div>
+          <div class="flex-between text-sec">
+            <span>Indiranagar · 4.1km</span>
+            <span>18 min ago</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="incident-card inc-amber">
+        <div class="inc-icon">⚠️</div>
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Road blocked — Whitefield</div>
+          <div class="flex-between text-sec">
+            <span>ITPL Main Rd · 6.2km</span>
+            <span>25 min ago</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="mt-3 mb-2">Verified Citizens Nearby</h3>
+      <div class="glass-panel" style="padding:16px;">
+        <div class="flex-between mb-2">
+          <div class="flex-row" style="gap:10px;">
+            <div class="avatar-circle" style="margin:0;">S</div>
+            <div>
+              <div style="font-size:14px; font-weight:600;">Suresh P. ✅</div>
+              <div class="badge-pro" style="margin-top:4px;">First Aid Trained</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="text-sec" style="font-size:12px;">0.9 km</div>
+            <div class="status-ready" style="justify-content:flex-end;">Ready</div>
+          </div>
+        </div>
+        <div style="height:1px; background:var(--border); margin:12px 0;"></div>
+        <div class="flex-between">
+          <div class="flex-row" style="gap:10px;">
+            <div class="avatar-circle" style="margin:0;">N</div>
+            <div>
+              <div style="font-size:14px; font-weight:600;">Neha G. ✅</div>
+              <div class="badge-std" style="margin-top:4px;">Nurse</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="text-sec" style="font-size:12px;">1.4 km</div>
+            <div class="text-muted" style="color:var(--warning); font-size:11px; display:flex; align-items:center; gap:4px; justify-content:flex-end;">
+              <span style="display:inline-block; width:6px; height:6px; background:var(--warning); border-radius:50%;"></span>Busy
+            </div>
+          </div>
+        </div>
+        <div style="height:1px; background:var(--border); margin:12px 0;"></div>
+        <div class="flex-between">
+          <div class="flex-row" style="gap:10px;">
+            <div class="avatar-circle" style="margin:0;">D</div>
+            <div>
+              <div style="font-size:14px; font-weight:600;">Dr. Arun ✅</div>
+              <div class="badge-pro" style="margin-top:4px;">Doctor</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="text-sec" style="font-size:12px;">2.1 km</div>
+            <div class="status-ready" style="justify-content:flex-end;">Ready</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="report-form" class="hidden glass-panel mt-3" style="padding:16px;">
+        <h4 class="mb-2">Report Incident</h4>
+        <select style="width:100%; background:var(--surface); border:1px solid var(--border); color:white; padding:12px; border-radius:8px; margin-bottom:12px; font-family:var(--font-body); font-size:14px; outline:none; appearance:none;">
+          <option>Medical</option>
+          <option>Fire</option>
+          <option>Accident</option>
+          <option>Other</option>
+        </select>
+        <input type="text" value="Current Location" readonly style="width:100%; background:var(--surface); border:1px solid var(--border); color:white; padding:12px; border-radius:8px; margin-bottom:12px; font-family:var(--font-body); font-size:14px; outline:none;">
+        <textarea placeholder="Describe the situation..." style="width:100%; background:var(--surface); border:1px solid var(--border); color:white; padding:12px; border-radius:8px; margin-bottom:16px; font-family:var(--font-body); font-size:14px; resize:none; height:80px; outline:none;"></textarea>
+        <button class="btn btn-primary" onclick="submitReport()">Submit</button>
+      </div>
+
+      <button class="btn btn-outline mt-3 w-100" id="btn-show-report" style="border:1px solid var(--border); background:var(--surface2);" onclick="document.getElementById('report-form').classList.remove('hidden'); this.style.display='none';">Report Incident</button>
+
+    </div>
+  </div>
+
+  <!-- Screen 8: Profile -->
+  <div id="screen-profile" class="screen">
+    <div class="screen-content">
+      <div class="flex-row mb-3" style="gap:16px;">
+        <div class="avatar-circle" style="width:64px; height:64px; font-size:20px; margin:0; border:2px solid var(--info);">ME</div>
+        <div>
+          <h2 style="font-size:24px;">John Doe</h2>
+          <div class="text-sec">+91 98765 43210</div>
+        </div>
+      </div>
+
+      <div class="grid-2x2">
+        <div class="action-card" style="min-height:auto; align-items:center;">
+          <div class="action-title text-sec mb-1">Alerts Sent</div>
+          <div style="font-size:28px; font-weight:700; font-family:var(--font-heading); color:var(--primary);">2</div>
+        </div>
+        <div class="action-card" style="min-height:auto; align-items:center;">
+          <div class="action-title text-sec mb-1">Responses</div>
+          <div style="font-size:28px; font-weight:700; font-family:var(--font-heading); color:var(--success);">5</div>
+        </div>
+      </div>
+      <div class="glass-panel flex-between mb-3" style="padding:16px;">
+        <div style="font-weight:600; font-size:15px;">Trust Score</div>
+        <div style="color:#FBBF24; font-weight:700; font-size:18px;">4.8 ⭐</div>
+      </div>
+
+      <h3 class="mb-2">Verification Tiers</h3>
+      <div class="tier-card" style="border-color:var(--safe); background:rgba(16,185,129,0.05);">
+        <div class="flex-row" style="gap:12px;">
+          <div class="tier-icon" style="background:var(--surface2);">⚪</div>
+          <div>
+            <div style="font-weight:600; font-size:15px;">Basic</div>
+            <div class="text-sec" style="font-size:12px;">Phone verified</div>
+          </div>
+        </div>
+        <div class="status-ready" style="font-weight:700; font-family:var(--font-heading); font-size:14px; letter-spacing:0.5px;">ACTIVE</div>
+      </div>
+      <div class="tier-card" style="border-color:var(--info); background:rgba(59,130,246,0.05);">
+        <div class="flex-row" style="gap:12px;">
+          <div class="tier-icon" style="background:rgba(59,130,246,0.2); color:var(--info);">🔵</div>
+          <div>
+            <div style="font-weight:600; font-size:15px;">Standard</div>
+            <div class="text-sec" style="font-size:12px;">Aadhaar verified</div>
+          </div>
+        </div>
+        <div class="status-ready" style="font-weight:700; color:var(--info); font-family:var(--font-heading); font-size:14px; letter-spacing:0.5px;">ACTIVE</div>
+      </div>
+      <div class="tier-card">
+        <div class="flex-row" style="gap:12px;">
+          <div class="tier-icon" style="background:rgba(245,158,11,0.2); color:var(--warning);">🥇</div>
+          <div>
+            <div style="font-weight:600; font-size:15px;">Pro</div>
+            <div class="text-sec" style="font-size:12px;">Medical license</div>
+          </div>
+        </div>
+        <div style="font-size:11px; padding:6px 10px; background:var(--surface2); border-radius:6px; font-weight:600; cursor:pointer;">UPGRADE</div>
+      </div>
+
+      <h3 class="mb-2 mt-3">Emergency Contacts</h3>
+      <div class="glass-panel" style="padding:16px;">
+        <div class="flex-between mb-2">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:2px;">Jane Doe</div>
+            <div class="text-sec" style="font-size:12px;">Spouse</div>
+          </div>
+          <div style="font-size:20px; color:var(--info); width:40px; height:40px; background:rgba(59,130,246,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">📞</div>
+        </div>
+        <div style="height:1px; background:var(--border); margin:12px 0;"></div>
+        <div class="flex-between">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:2px;">Robert Smith</div>
+            <div class="text-sec" style="font-size:12px;">Brother</div>
+          </div>
+          <div style="font-size:20px; color:var(--info); width:40px; height:40px; background:rgba(59,130,246,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">📞</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav id="bottom-nav" class="bottom-nav hidden">
+    <div class="nav-item active" id="nav-home" onclick="navTo('home', this)">
+      <div class="nav-icon">🏠</div>
+      <span>Home</span>
+    </div>
+    <div class="nav-item" id="nav-transport" onclick="navTo('transport', this)">
+      <div class="nav-icon">🚑</div>
+      <span>Transport</span>
+    </div>
+    <div class="nav-item" id="nav-firstaid" onclick="navTo('firstaid', this)">
+      <div class="nav-icon">❤️</div>
+      <span>First Aid</span>
+    </div>
+    <div class="nav-item" id="nav-services" onclick="navTo('services', this)">
+      <div class="nav-icon">🏥</div>
+      <span>Services</span>
+    </div>
+    <div class="nav-item" id="nav-alerts" onclick="navTo('alerts', this)">
+      <div class="nav-icon">🔔</div>
+      <span>Alerts</span>
+    </div>
+  </nav>
+
+</div>
+
+<script>
+// Mock Data
+const firstAidGuides = {
+  cpr: {
+    icon: '❤️', title: 'CPR Guide',
+    steps: [
+      "Call 108 emergency services immediately",
+      "Lay person flat on a firm, flat surface",
+      "Place heel of hand on center of chest",
+      "Push hard and fast — 100–120 compressions/min",
+      "After 30 compressions, give 2 rescue breaths",
+      "Continue until help arrives or person responds"
+    ]
+  },
+  bleeding: {
+    icon: '🩸', title: 'Bleeding Control',
+    steps: [
+      "Apply direct pressure with a clean cloth",
+      "Elevate injured area above heart level",
+      "Do not remove cloth — add more on top",
+      "Apply tourniquet 5cm above wound if limb",
+      "Note the time tourniquet was applied",
+      "Maintain pressure until medics arrive"
+    ]
+  },
+  burns: {
+    icon: '🔥', title: 'Burn Treatment',
+    steps: [
+      "Remove from heat source — ensure your safety",
+      "Cool burn under running water for 20 minutes",
+      "Do not use ice, butter, or toothpaste",
+      "Cover loosely with cling film or clean bag",
+      "Remove jewelry near burn area gently",
+      "Seek medical attention for all serious burns"
+    ]
+  },
+  choking: {
+    icon: '😮', title: 'Choking Response',
+    steps: [
+      "Ask 'Are you choking?' — if no response, act",
+      "Give 5 firm back blows between shoulder blades",
+      "If ineffective, give 5 abdominal thrusts (Heimlich)",
+      "Alternate back blows and abdominal thrusts",
+      "If unconscious, begin CPR immediately",
+      "Call 108 if object not removed within 2 minutes"
+    ]
+  }
+};
+
+const services = [
+  { icon: '🏥', name: 'City Hospital', type: 'Multi-specialty', dist: '2.3 km', star: '4.5', wait: '~15 min wait' },
+  { icon: '🏥', name: 'Care Clinic', type: 'General + Emergency', dist: '1.5 km', star: '4.2', wait: '~8 min wait' },
+  { icon: '💊', name: 'Apollo Pharmacy', type: '24hr Pharmacy', dist: '0.8 km', star: '4.7', wait: 'Open now' },
+  { icon: '🩺', name: 'Fortis Emergency', type: '24hr Emergency', dist: '3.1 km', star: '4.6', wait: '~20 min wait' },
+  { icon: '🏥', name: 'Manipal Hospital', type: 'Trauma Center', dist: '4.0 km', star: '4.8', wait: '~25 min wait' },
+  { icon: '🧪', name: 'Thyrocare Labs', type: 'Diagnostics', dist: '1.2 km', star: '4.3', wait: 'Open now' }
+];
+
+// App State
+let currentScreen = 'splash';
+let sosActive = false;
+let silentMode = false;
+let synth = window.speechSynthesis;
+let utterance = null;
+let countdownInterval = null;
+
+// Initialize
+window.onload = () => {
+  // Render services
+  const srvHtml = services.map(s => `
+    <div class="service-card">
+      <div class="srv-header">
+        <div class="flex-row" style="gap:12px;">
+          <div style="font-size:24px; width:44px; height:44px; background:var(--surface2); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${s.icon}</div>
+          <div>
+            <div class="srv-title">${s.name}</div>
+            <div style="font-size:12px; color:var(--text-sec); margin-top:2px;">${s.type}</div>
+          </div>
+        </div>
+        <div class="srv-dist">${s.dist}</div>
+      </div>
+      <div class="srv-meta">
+        <div><span class="srv-star">⭐ ${s.star}</span></div>
+        <div>🕒 ${s.wait}</div>
+      </div>
+      <button class="btn-book-srv w-100" onclick="bookService(this)">Book</button>
+    </div>
+  `).join('');
+  document.getElementById('services-list').innerHTML = srvHtml;
+
+  // Splash timeout
+  setTimeout(() => {
+    document.getElementById('main-header').classList.remove('hidden');
+    document.getElementById('bottom-nav').classList.remove('hidden');
+    navTo('home', document.getElementById('nav-home'));
+  }, 2500);
+
+  // SOS Button logic (Long press vs click)
+  const btnSos = document.getElementById('btn-sos');
+  let pressTimer;
+  btnSos.addEventListener('mousedown', () => { pressTimer = setTimeout(() => triggerSOS(true), 500); });
+  btnSos.addEventListener('mouseup', () => { clearTimeout(pressTimer); });
+  btnSos.addEventListener('mouseleave', () => { clearTimeout(pressTimer); });
+  btnSos.addEventListener('touchstart', (e) => { pressTimer = setTimeout(() => triggerSOS(true), 500); }, {passive: true});
+  btnSos.addEventListener('touchend', (e) => { clearTimeout(pressTimer); }, {passive: true});
+  btnSos.addEventListener('click', (e) => { e.preventDefault(); triggerSOS(false); });
+};
+
+// Navigation
+function navTo(screenId, navEl = null) {
+  if (currentScreen === screenId) return;
+  
+  // Hide current
+  const currentEl = document.getElementById('screen-' + currentScreen);
+  if (currentEl) {
+    currentEl.classList.remove('active');
+    // Ensure header/nav are visible if leaving SOS
+    if (currentScreen === 'sos-active') {
+      document.getElementById('main-header').classList.remove('hidden');
+      document.getElementById('bottom-nav').classList.remove('hidden');
+    }
+  }
+  
+  // Show new
+  const newEl = document.getElementById('screen-' + screenId);
+  if (newEl) newEl.classList.add('active');
+  
+  currentScreen = screenId;
+
+  // Update Nav highlighting
+  if (navEl) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    navEl.classList.add('active');
+  }
+}
+
+// SOS Logic
+function triggerSOS(isSilent) {
+  if (sosActive) return;
+  sosActive = true;
+  silentMode = isSilent;
+
+  if (isSilent) {
+    document.getElementById('silent-badge').classList.remove('hidden');
+    document.getElementById('silent-dot').style.display = 'block';
+    document.getElementById('status-dot').style.display = 'none';
+    // Small haptic feedback logic replacement
+    showNotification("Silent Alert Active", "Responders notified discreetly");
+    return;
+  }
+
+  // Regular SOS sequence
+  document.getElementById('main-header').classList.add('hidden');
+  document.getElementById('bottom-nav').classList.add('hidden');
+  navTo('sos-active');
+  
+  // Reset phases
+  document.querySelectorAll('.sos-phase').forEach(el => el.classList.remove('active'));
+  document.getElementById('sos-phase-1').classList.add('active');
+  
+  // Reset map timeline and cards
+  document.getElementById('responder-card').style.display = 'none';
+  document.getElementById('live-timeline').innerHTML = '';
+  document.querySelectorAll('.gov-card').forEach(c => { c.style.opacity = '0'; c.style.transform = 'translateY(10px)'; });
+  
+  // Phase 1 animation
+  setTimeout(() => { document.getElementById('sos-pbar-1').style.width = '100%'; }, 50);
+
+  // Phase 2 (1.8s)
+  setTimeout(() => {
+    document.getElementById('sos-phase-1').classList.remove('active');
+    document.getElementById('sos-phase-2').classList.add('active');
+    
+    // Animate checkmarks
+    setTimeout(() => { document.getElementById('gov-1').style.opacity = '1'; document.getElementById('gov-1').style.transform = 'translateY(0)'; }, 300);
+    setTimeout(() => { document.getElementById('gov-2').style.opacity = '1'; document.getElementById('gov-2').style.transform = 'translateY(0)'; }, 600);
+    setTimeout(() => { document.getElementById('gov-3').style.opacity = '1'; document.getElementById('gov-3').style.transform = 'translateY(0)'; }, 900);
+  }, 1800);
+
+  // Phase 3 (2.5s)
+  setTimeout(() => {
+    document.getElementById('sos-phase-2').classList.remove('active');
+    document.getElementById('sos-phase-3').classList.add('active');
+    
+    // Timeline builder
+    const tl = document.getElementById('live-timeline');
+    const events = [
+      { t: "00:00", text: "🔴 SOS Sent" },
+      { t: "00:03", text: "📡 Alert received by 5 users" },
+      { t: "00:45", text: "🚑 CATS Ambulance dispatched" }
+    ];
+    
+    events.forEach((ev, idx) => {
+      setTimeout(() => {
+        const d = document.createElement('div');
+        d.className = 'timeline-item';
+        d.style.animation = 'slideLeftIn 0.5s ease forwards';
+        d.innerHTML = `<div class="timeline-time">${ev.t}</div><div class="timeline-content">${ev.text}</div>`;
+        tl.appendChild(d);
+      }, idx * 500);
+    });
+
+  }, 3500);
+
+  // Phase 4 (4s)
+  setTimeout(() => {
+    document.getElementById('responder-card').style.display = 'block';
+    const tl = document.getElementById('live-timeline');
+    const d = document.createElement('div');
+    d.className = 'timeline-item';
+    d.style.animation = 'slideLeftIn 0.5s ease forwards';
+    d.innerHTML = `<div class="timeline-time">00:08</div><div class="timeline-content" style="color:var(--safe); font-weight:600;">✅ Ravi Kumar accepted</div>`;
+    if(tl.children.length > 2) {
+      tl.insertBefore(d, tl.children[2]); // insert before ambulance if possible
+    } else {
+      tl.appendChild(d);
+    }
+
+    // Show popup everywhere else
+    showNotification("🚨 Emergency 1.2km from you", "Ravi Kumar accepted — 3 min ETA");
+    
+    document.getElementById('sos-banner').classList.remove('hidden');
+  }, 5000);
+}
+
+function cancelSOS() {
+  sosActive = false;
+  silentMode = false;
+  document.getElementById('silent-badge').classList.add('hidden');
+  document.getElementById('silent-dot').style.display = 'none';
+  document.getElementById('status-dot').style.display = 'block';
+  document.getElementById('sos-banner').classList.add('hidden');
+  
+  navTo('home', document.getElementById('nav-home'));
+  document.getElementById('main-header').classList.remove('hidden');
+  document.getElementById('bottom-nav').classList.remove('hidden');
+}
+
+// Transport
+function selectVehicle(el) {
+  document.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function bookTransport() {
+  const selected = document.querySelector('.vehicle-card.selected');
+  if(!selected) { alert("Please select a vehicle first"); return; }
+  
+  const btn = document.getElementById('btn-book-transport');
+  btn.innerHTML = '<div class="spinner" style="width:24px; height:24px; border-width:3px; border-top-color:#000; margin:0;"></div>';
+  
+  setTimeout(() => {
+    document.getElementById('transport-list').classList.add('hidden');
+    document.getElementById('book-btn-area').classList.add('hidden');
+    document.getElementById('transport-booking').classList.remove('hidden');
+    
+    // Timer
+    let time = 120;
+    countdownInterval = setInterval(() => {
+      time--;
+      if(time < 0) { clearInterval(countdownInterval); return; }
+      const m = Math.floor(time / 60);
+      const s = time % 60;
+      document.getElementById('eta-countdown').innerText = `0${m}:${s<10?'0':''}${s}`;
+    }, 1000);
+  }, 1500);
+}
+
+// First Aid Guide
+function openGuide(key) {
+  const data = firstAidGuides[key];
+  document.getElementById('guide-icon').innerText = data.icon;
+  document.getElementById('guide-title').innerText = data.title;
+  
+  const html = data.steps.map((step, i) => `
+    <div class="step-item">
+      <div class="step-num">${i+1}</div>
+      <div class="step-text">${step}</div>
+      <div class="step-line"></div>
+    </div>
+  `).join('');
+  document.getElementById('guide-content').innerHTML = html;
+  
+  document.getElementById('guide-panel').classList.add('open');
+  
+  // Prep speech text
+  const fullText = data.title + ". " + data.steps.map((s,i) => "Step " + (i+1) + ". " + s).join(". ");
+  utterance = new SpeechSynthesisUtterance(fullText);
+  utterance.rate = 0.9;
+  utterance.onend = () => {
+    document.getElementById('voice-icon').innerText = '🔊';
+    document.getElementById('voice-text').innerText = 'Start Voice Guide';
+  };
+}
+
+function closeGuide() {
+  document.getElementById('guide-panel').classList.remove('open');
+  if (synth.speaking) {
+    synth.cancel();
+    document.getElementById('voice-icon').innerText = '🔊';
+    document.getElementById('voice-text').innerText = 'Start Voice Guide';
+  }
+}
+
+function toggleVoice() {
+  if (synth.speaking) {
+    synth.cancel();
+    document.getElementById('voice-icon').innerText = '🔊';
+    document.getElementById('voice-text').innerText = 'Start Voice Guide';
+  } else {
+    synth.speak(utterance);
+    document.getElementById('voice-icon').innerText = '⏹';
+    document.getElementById('voice-text').innerText = 'Stop';
+  }
+}
+
+// Services Booking
+function bookService(btn) {
+  const id = Math.floor(100000 + Math.random() * 900000);
+  btn.style.background = 'var(--safe)';
+  btn.style.color = '#000';
+  btn.style.borderColor = 'var(--safe)';
+  btn.innerText = '✓ Booked — ID: #' + id;
+  btn.disabled = true;
+}
+
+// Form mock
+function submitReport() {
+  alert("Report submitted to authorities.");
+  document.getElementById('report-form').classList.add('hidden');
+  document.getElementById('btn-show-report').style.display = 'block';
+}
+
+// Global notification
+function showNotification(title, desc) {
+  const notif = document.getElementById('notif-popup');
+  document.getElementById('notif-title').innerText = title;
+  document.getElementById('notif-desc').innerText = desc;
+  notif.classList.add('show');
+  
+  setTimeout(() => {
+    notif.classList.remove('show');
+  }, 4000);
+}
+
+// Filter pills interaction
+document.querySelectorAll('.filter-pill').forEach(pill => {
+  pill.addEventListener('click', (e) => {
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+  });
+});
+
+</script>
+</body>
+</html>
